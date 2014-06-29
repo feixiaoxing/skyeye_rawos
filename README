@@ -1,0 +1,18 @@
+
+architecture: arm920
+
+chip: s3c2410
+
+os: raw-os 1.04
+
+compiler: arm-linux-gcc 4.4.3
+
+emulator: skyeye 1.2.6
+
+compile step: make & skyeye -e nvme_os
+
+debug: skyeye -e nvme_os -d
+    
+       ./gdb nvme_os & target remote :12345 & c
+
+

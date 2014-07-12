@@ -29,9 +29,6 @@
 #include <raw_api.h>
 
 
-#if (CONFIG_RAW_SYSTEM_PREEMPTABLE > 0)
-
-
 /*
 ************************************************************************************************************************
 *                                    Finish interrupt
@@ -55,24 +52,24 @@ RAW_VOID raw_finish_int(void)
 
 	RAW_SR_ALLOC();
 
-	RAW_CPU_DISABLE();
+	USER_CPU_INT_DISABLE();
 
 	/*prevent raw_int_nesting 0 enter, 0 means it is processed*/
 	if (raw_int_nesting == 0) {
-		RAW_CPU_ENABLE();                                  
+		USER_CPU_INT_ENABLE();                                  
 		return;
 	}
 
 	raw_int_nesting--;
 	/*if still interrupt nested just return */
 	if (raw_int_nesting) {              
-		RAW_CPU_ENABLE();                                  
+		USER_CPU_INT_ENABLE();                                  
 		return;
 	}
 	/*if system is locked then just return*/
 	if (raw_sched_lock) { 
 
-		RAW_CPU_ENABLE(); 
+		USER_CPU_INT_ENABLE(); 
 		/*if interrupt happen here, it may cause raw_int_nesting equal 0*/
 		return;
 	}
@@ -82,7 +79,7 @@ RAW_VOID raw_finish_int(void)
 
 	/*if the current task is still the highest task then we do not need to have interrupt switch*/ 
 	if (high_ready_obj == raw_task_active) {                 
-		RAW_CPU_ENABLE();                                     
+		USER_CPU_INT_ENABLE();                                     
 		return;
 	}
 
@@ -91,7 +88,7 @@ RAW_VOID raw_finish_int(void)
 	/*switch to the highest task, this function is cpu related, thus need to be ported*/
 	raw_int_switch();  
 
-	RAW_CPU_ENABLE();  
+	USER_CPU_INT_ENABLE();  
 
 }
 
@@ -149,41 +146,6 @@ RAW_VOID raw_time_tick(void)
 	call_timer_task();
 	#endif
 }
-
-#else
-
-RAW_VOID raw_finish_int(void)
-{
-
-	RAW_SR_ALLOC();
-
-	RAW_CPU_DISABLE();
-
-	/*prevent raw_int_nesting 0 enter, 0 means it is processed*/
-	if (raw_int_nesting == 0) {
-		
-		RAW_CPU_ENABLE();                                  
-		return;
-	}
-	
-	raw_int_nesting--;
-	
-	RAW_CPU_ENABLE();
-}
-
-
-
-RAW_VOID raw_time_tick(void)
-{
-	#if (CONFIG_RAW_USER_HOOK > 0)
-	raw_tick_hook();
-	#endif
-	
-	tick_list_update();
-}
-
-
-#endif
 
 
 
@@ -366,10 +328,6 @@ RAW_VOID *raw_memcpy(RAW_VOID *dest, const RAW_VOID *src, RAW_U32 count)
 
 #endif
 
-
-#if (RAW_CPU_WIDTH_32 > 0)
-
-/*For 32 bit cpu*/
 RAW_S32 bit_search_first_one(RAW_U32 *base, RAW_U8 offset, RAW_S32 width)
 {
 	register RAW_U32 *cp, v;
@@ -482,48 +440,4 @@ RAW_S32 bit_search_first_one(RAW_U32 *base, RAW_U8 offset, RAW_S32 width)
 
     return -1;
 }
-
-
-#else
-
-/*for 8 bit 16 bit cpu*/
-RAW_S32 bit_search_first_one(RAW_U32 *base, RAW_S32 offset,  RAW_S32 width)
-{
-	register RAW_U8 *cp, mask;
-	register RAW_S32 position;
-
-	cp = (RAW_U8 *)base;
-	cp += offset / 8;
-
-	position = 0;
-	mask = _BIT_SET_N(offset);
-
-	while (position < width) {
-		if (*cp) {		/* includes 1 --> search bit of 1 */
-			while (1) {
-				if (*cp & mask) {
-					if (position < width) {
-						return position;
-					} else {
-						return -1;
-					}
-				}
-				mask = _BIT_SHIFT(mask);
-				++position;
-			}
-		} else {		/* all bits are 0 --> 1 Byte skip */
-			if (position) {
-				position += 8;
-			} else {
-				position = 8 - (offset & 7);
-				mask = _BIT_SET_N(0);
-			}
-			cp++;
-		}
-	}
-	
-	return -1;
-}
-
-#endif
 

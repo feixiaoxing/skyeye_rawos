@@ -155,7 +155,7 @@ RAW_U16 semaphore_put(RAW_SEMAPHORE *semaphore_ptr, RAW_U8 opt_wake_all)
 	
 	RAW_CRITICAL_EXIT();
 
-	do_possible_sche();    
+	raw_sched();    
 
 	return RAW_SUCCESS;
 
@@ -175,8 +175,8 @@ RAW_U16 semaphore_put(RAW_SEMAPHORE *semaphore_ptr, RAW_U8 opt_wake_all)
 *                 -----
 *                 
 *				         
-* Returns			RAW_SEMAPHORE_OVERFLOW: semphore value excedded 0xffffffff
-						RAW_SUCCESS: raw os return success
+* Returns          RAW_SEMAPHORE_OVERFLOW: semphore value excedded 0xffffffff
+*                      RAW_SUCCESS: raw os return success
 * Note(s)    	
 *
 *             
@@ -204,6 +204,48 @@ RAW_U16 raw_semaphore_put(RAW_SEMAPHORE *semaphore_ptr)
 	
 	return semaphore_put(semaphore_ptr, WAKE_ONE_SEM);
 }
+
+
+/*
+************************************************************************************************************************
+*                                       Notify function call back and release a semaphore. 
+*
+* Description: This function is called to call back a registered notify function.
+*
+* Arguments  :semaphore_ptr is the address of semphore object want to be initialized 
+*                 -----
+*                 
+*				         
+* Returns       RAW_SEMAPHORE_OVERFLOW: semphore value excedded 0xffffffff
+*                   RAW_SUCCESS: raw os return success
+* Note(s)    	
+*
+*             
+************************************************************************************************************************
+*/
+RAW_U16 raw_semaphore_put_notify(RAW_SEMAPHORE *semaphore_ptr)
+{
+
+	#if (RAW_SEMA_FUNCTION_CHECK > 0)
+	
+	if (semaphore_ptr == 0) {
+		
+		return RAW_NULL_OBJECT;
+	}
+	
+	#endif
+
+	#if (CONFIG_RAW_ZERO_INTERRUPT > 0)
+	
+	if (raw_int_nesting) {
+		return int_msg_post(RAW_TYPE_SEM, semaphore_ptr, 0, 0, 0, 0);
+	}
+	
+	#endif
+	
+	return semaphore_put(semaphore_ptr, WAKE_ONE_SEM);
+}
+
 
 
 /*
@@ -530,7 +572,7 @@ RAW_U16 raw_semaphore_delete(RAW_SEMAPHORE *semaphore_ptr)
 
 	TRACE_SEMAPHORE_DELETE(raw_task_active, semaphore_ptr);
 	
-	do_possible_sche(); 
+	raw_sched(); 
 	
 	return RAW_SUCCESS;
 }

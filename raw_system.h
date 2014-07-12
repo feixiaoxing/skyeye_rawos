@@ -28,7 +28,9 @@
 #ifndef RAW_SYSTEM_H
 #define RAW_SYSTEM_H
 
-#define RAW_OS_VERSION                              104
+#define RAW_OS_VERSION                              1053
+
+#define RAW_OS_BUILD_TIME                           "2014/7/03"     
 
 #define IDLE_PRIORITY                               (CONFIG_RAW_PRIO_MAX - 1)
 
@@ -50,15 +52,7 @@
 #define _BIT_SHIFT(n) ((RAW_U8)n >> 1 )
 #endif
 
-#if (CONFIG_RAW_SYSTEM_PREEMPTABLE > 0)
 
-#define do_possible_sche()       raw_sched()
-
-#else
-
-#define  do_possible_sche()
-
-#endif
 
 /* *****************************************************************************
  * Below are all the possible error codes the os can generate
@@ -189,8 +183,6 @@ enum
 	RAW_BLOCK_OBJ_TYPE,
 	RAW_TIMER_OBJ_TYPE,
 	RAW_EVENT_OBJ_TYPE,
-	RAW_CONDITION_OBJ_TYPE,
-	RAW_CONDITION_SIZE_OBJ_TYPE,
 	RAW_MQUEUE_OBJ_TYPE
 	
 };

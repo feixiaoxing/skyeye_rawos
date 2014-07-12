@@ -179,7 +179,7 @@ RAW_U16 raw_task_create(RAW_TASK_OBJ  *task_obj, RAW_U8  *task_name,  RAW_VOID  
 	task_create_hook(task_obj);
 	#endif
 	
-	task_obj->task_stack = (RAW_VOID*)port_stack_init(task_stack_base, stack_size, task_arg, task_entry);
+	task_obj->task_stack = port_stack_init(task_stack_base, stack_size, task_arg, task_entry);
 	task_obj->task_name  = task_name; 
 	task_obj->priority   = task_prio;
 	task_obj->bpriority  = task_prio;
@@ -189,9 +189,7 @@ RAW_U16 raw_task_create(RAW_TASK_OBJ  *task_obj, RAW_U8  *task_name,  RAW_VOID  
 	
 	RAW_CRITICAL_ENTER();
 	
-	#if (RAW_SYSTEM_CHECK > 0)
-	list_insert(&(system_debug.task_head), &task_obj->stack_check_list);
-	#endif
+	list_insert(&(raw_task_debug.task_head), &task_obj->task_debug_list);
 
 	if (auto_start) {
 		add_ready_list_end(&raw_ready_queue, task_obj);
@@ -205,7 +203,7 @@ RAW_U16 raw_task_create(RAW_TASK_OBJ  *task_obj, RAW_U8  *task_name,  RAW_VOID  
 	RAW_CRITICAL_EXIT();
 
 	if (auto_start) {
-		do_possible_sche();
+		raw_sched();
 	}
 	
 	return RAW_SUCCESS;
@@ -298,7 +296,6 @@ RAW_U16 raw_task_stack_check(RAW_TASK_OBJ  *task_obj, RAW_U32 *free_stack)
 ************************************************************************************************************************
 */
 
-#if (CONFIG_RAW_SYSTEM_PREEMPTABLE > 0)
 
 RAW_U16 raw_disable_sche(void)
 {
@@ -321,20 +318,18 @@ RAW_U16 raw_disable_sche(void)
 	#endif
 	
 	RAW_CPU_DISABLE();
+
+	#if (RAW_SCHE_LOCK_MEASURE_CHECK > 0)
+
+	sche_disable_measure_start();
+	
+	#endif
+	
 	raw_sched_lock++;
 	RAW_CPU_ENABLE();
 	
 	return RAW_SUCCESS;
 }
-
-#else 
-
-RAW_U16 raw_disable_sche(void)
-{
-	return RAW_SUCCESS;
-}
-
-#endif
 
 
 
@@ -356,9 +351,6 @@ RAW_U16 raw_disable_sche(void)
 *             
 ************************************************************************************************************************
 */
-
-#if (CONFIG_RAW_SYSTEM_PREEMPTABLE > 0)
-
 RAW_U16 raw_enable_sche(void)
 {
 
@@ -372,7 +364,7 @@ RAW_U16 raw_enable_sche(void)
 	}
 		
 
-	if (raw_sched_lock == 0) {
+	if (raw_sched_lock == 0u) {
 		
 		return RAW_SCHED_INVALID;
 	}
@@ -383,7 +375,14 @@ RAW_U16 raw_enable_sche(void)
 	#if (CONFIG_RAW_TASK_0 > 0)
 
 
-	if (raw_sched_lock == 1) {							
+	if (raw_sched_lock == 1u) {
+		
+		#if (RAW_SCHE_LOCK_MEASURE_CHECK > 0)
+		
+		sche_disable_measure_stop();
+		
+		#endif
+		
 		hybrid_int_process();							  
 	}
 	
@@ -399,6 +398,13 @@ RAW_U16 raw_enable_sche(void)
 	#else
 	
 	RAW_CPU_DISABLE();
+
+	#if (RAW_SCHE_LOCK_MEASURE_CHECK > 0)
+
+	sche_disable_measure_stop();
+
+	#endif
+	
 	raw_sched_lock--;
 	
 	if (raw_sched_lock) {
@@ -416,17 +422,6 @@ RAW_U16 raw_enable_sche(void)
 	
 	return RAW_SUCCESS;
 }
-
-#else 
-
-RAW_U16 raw_enable_sche(void)
-{
-
-	return RAW_SUCCESS;
-
-}
-
-#endif
 
 
 /*
@@ -595,12 +590,6 @@ RAW_U16 raw_task_suspend(RAW_TASK_OBJ *task_ptr)
 {
 	
 	#if (RAW_TASK_FUNCTION_CHECK > 0)
-
-	if (raw_int_nesting) {
-
-		return RAW_NOT_CALLED_BY_ISR;
-
-	}
 	
 	if (task_ptr == 0) {
 		return RAW_NULL_OBJECT;
@@ -618,6 +607,15 @@ RAW_U16 raw_task_suspend(RAW_TASK_OBJ *task_ptr)
 		return RAW_SUSPEND_TASK_NOT_ALLOWED;
 	}
 	
+	#endif
+
+	#if (CONFIG_RAW_ZERO_INTERRUPT > 0)
+
+	if (raw_int_nesting) {
+		
+		return int_msg_post(RAW_TYPE_SUSPEND, task_ptr, 0, 0, 0, 0);
+	}
+
 	#endif
 	
 	return task_suspend(task_ptr);
@@ -684,17 +682,8 @@ RAW_U16 task_suspend(RAW_TASK_OBJ *task_ptr)
 
 	TRACE_TASK_SUSPEND(raw_task_active, task_ptr);
 	
-	#if (CONFIG_RAW_SYSTEM_PREEMPTABLE > 0)
 	raw_sched();
-
-	#else
 	
-	if (task_ptr == raw_task_active) {
-		raw_sched();
-	}
-	
-	#endif     
-
 	return RAW_SUCCESS;
 
 }
@@ -816,7 +805,7 @@ RAW_U16 task_resume(RAW_TASK_OBJ *task_ptr)
 
 	TRACE_TASK_RESUME(raw_task_active, task_ptr);
 
-	do_possible_sche();   
+	raw_sched();   
 
 	return RAW_SUCCESS;
 
@@ -994,7 +983,7 @@ RAW_U16 raw_task_priority_change (RAW_TASK_OBJ *task_ptr, RAW_U8 new_priority, R
 
 	TRACE_TASK_PRIORITY_CHANGE(task_ptr, new_priority);
 	
-	do_possible_sche();  
+	raw_sched();  
 
  	return RAW_SUCCESS;
 	
@@ -1093,6 +1082,7 @@ RAW_U16 raw_task_delete(RAW_TASK_OBJ *task_ptr)
 		case RAW_PEND_TIMEOUT_SUSPENDED:
 			tick_list_remove(task_ptr);
 			list_delete(&task_ptr->task_list);
+			task_ptr->task_state = RAW_DELETED;
 			
 			#if (CONFIG_RAW_MUTEX > 0)
 			mutex_state_change(task_ptr);
@@ -1109,17 +1099,7 @@ RAW_U16 raw_task_delete(RAW_TASK_OBJ *task_ptr)
 
 	task_ptr->task_state = RAW_DELETED;   
 	
-	#if (RAW_SYSTEM_CHECK > 0)
-	/*make after_delete_list to right position*/
-	system_debug.after_delete_list = task_ptr->stack_check_list.next;
-	
-	if (system_debug.after_delete_list == (&(system_debug.task_head))) {
-				system_debug.after_delete_list = system_debug.task_head.next;
-	}
-	
-	list_delete(&task_ptr->stack_check_list);
-	 
-	#endif
+	list_delete(&task_ptr->task_debug_list);
 	
 	RAW_CRITICAL_EXIT();
 
@@ -1129,19 +1109,11 @@ RAW_U16 raw_task_delete(RAW_TASK_OBJ *task_ptr)
 	raw_task_delete_hook(task_ptr);
 	#endif
 
-	#if (CONFIG_RAW_SYSTEM_PREEMPTABLE > 0)
 	raw_sched();
 
-	#else
-	
-	if (task_ptr == raw_task_active) {
-		raw_sched();
-	}
-	
-	#endif
-	
 	return RAW_SUCCESS;
 }
+
 #endif
 
 
@@ -1420,13 +1392,13 @@ RAW_U16 raw_task_wait_abort(RAW_TASK_OBJ *task_ptr)
 			list_delete(&task_ptr->task_list);   
           	/*add to the ready list again*/    
 			add_ready_list(&raw_ready_queue, task_ptr);
+			task_ptr->task_state = RAW_RDY;
+			task_ptr->block_status = RAW_B_ABORT;
 			
 			#if (CONFIG_RAW_MUTEX > 0)
 			mutex_state_change(task_ptr);
 			#endif
 
-			task_ptr->task_state = RAW_RDY;
-			task_ptr->block_status = RAW_B_ABORT;
 			task_ptr->block_obj = 0;
 			
 			break;
@@ -1446,7 +1418,7 @@ RAW_U16 raw_task_wait_abort(RAW_TASK_OBJ *task_ptr)
 	
 	TRACE_TASK_WAIT_ABORT(task_ptr);
 	
-	do_possible_sche(); 
+	raw_sched(); 
 	
 	return RAW_SUCCESS;
 }
@@ -1539,7 +1511,7 @@ RAW_U16 raw_iter_block_task(LIST *object_head, RAW_VOID  (*debug_function)(RAW_T
 
 	RAW_CRITICAL_EXIT(); 
 
-	do_possible_sche();
+	raw_sched();
 
 	return RAW_SUCCESS;
 	 
@@ -1586,12 +1558,13 @@ RAW_U32 raw_get_system_global_space(void)
 
 	#endif
 
-	#if (RAW_SYSTEM_CHECK > 0)
+	data_space += sizeof(raw_task_debug);
+
+	#if (CONFIG_RAW_MUTEX > 0)
 	
-	data_space += sizeof(system_debug);
+	data_space += sizeof(mutex_recursion_levels) + sizeof(mutex_recursion_max_levels);
 
 	#endif
-
 	
 	#if (CONFIG_RAW_TASK_0 > 0)
 	

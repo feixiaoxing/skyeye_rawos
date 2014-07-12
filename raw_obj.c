@@ -46,6 +46,8 @@ RAW_TASK_OBJ              *raw_task_active;
 /*idle attribute*/
 RAW_TASK_OBJ              raw_idle_obj;
 PORT_STACK                idle_stack[IDLE_STACK_SIZE];
+RAW_IDLE_COUNT_TYPE       raw_idle_count;
+
 
 /*tick attribute*/
 RAW_TICK_TYPE             raw_tick_count;
@@ -59,38 +61,71 @@ RAW_U32                   raw_timer_ctrl;
 RAW_TASK_OBJ              raw_timer_obj;
 PORT_STACK                timer_task_stack[TIMER_STACK_SIZE];
 RAW_SEMAPHORE             timer_sem;
+RAW_MUTEX                 timer_mutex;
 
 #endif
 
+#if (CONFIG_RAW_MUTEX > 0)
 
-#if (RAW_SYSTEM_CHECK > 0)
-
-RAW_SYSTEM_DEBUG          system_debug;
+RAW_U8                    mutex_recursion_levels;
+RAW_U8                    mutex_recursion_max_levels;
 
 #endif
 
+#if (RAW_SCHE_LOCK_MEASURE_CHECK > 0)
+
+PORT_TIMER_TYPE           raw_sche_disable_time_start;
+PORT_TIMER_TYPE           raw_sche_disable_time_max;
+
+#endif
+
+#if (RAW_CPU_INT_DIS_MEASURE_CHECK > 0)
+
+RAW_U16                   int_disable_times;
+PORT_TIMER_TYPE           raw_int_disable_time_start;
+PORT_TIMER_TYPE           raw_int_disable_time_max;
+
+#endif
+
+#if (RAW_CONFIG_CPU_TIME > 0)
+
+PORT_TIMER_TYPE           system_meaure_overhead;
+
+#endif
+
+#if (RAW_CONFIG_CPU_TASK > 0)
+
+RAW_TASK_OBJ              raw_cpu_obj;
+PORT_STACK                cpu_task_stack[CPU_STACK_SIZE];
+RAW_IDLE_COUNT_TYPE       raw_idle_count_max;
+RAW_U32                   cpu_usuage;
+RAW_U32                   cpu_usuage_max;
+
+#endif
+
+RAW_OBJECT_DEBUG          raw_task_debug;
 
 #if (CONFIG_RAW_TASK_0 > 0)
 
-RAW_U16                    task_0_event_head;
-RAW_U16                    task_0_event_end;
-RAW_U16                    task_0_events;
-RAW_U16                    peak_events;
+RAW_U16                   task_0_event_head;
+RAW_U16                   task_0_event_end;
+RAW_U16                   task_0_events;
+RAW_U16                   peak_events;
 
-EVENT_STRUCT               task_0_events_queue[MAX_TASK_EVENT];
-RAW_TASK_OBJ               raw_task_0_obj;
+EVENT_STRUCT              task_0_events_queue[MAX_TASK_EVENT];
+RAW_TASK_OBJ              raw_task_0_obj;
 
-PORT_STACK                 task_0_stack[TASK_0_STACK_SIZE];
-EVENT_HANLDER              task_0_event_handler;
-RAW_U8                     task_0_exit;
+PORT_STACK                task_0_stack[TASK_0_STACK_SIZE];
+EVENT_HANLDER             task_0_event_handler;
+RAW_U8                    task_0_exit;
 
 
 #if (CONFIG_RAW_ZERO_INTERRUPT > 0)
 
-OBJECT_INT_MSG             object_int_msg[OBJECT_INT_MSG_SIZE];
-OBJECT_INT_MSG             *free_object_int_msg;
-RAW_U32                    int_msg_full;
-EVENT_HANLDER              msg_event_handler;
+OBJECT_INT_MSG            object_int_msg[OBJECT_INT_MSG_SIZE];
+OBJECT_INT_MSG            *free_object_int_msg;
+RAW_U32                   int_msg_full;
+EVENT_HANLDER             msg_event_handler;
 
 #endif
 
@@ -98,9 +133,9 @@ EVENT_HANLDER              msg_event_handler;
 
 #if (CONFIG_RAW_TICK_TASK > 0)
 
-RAW_TASK_OBJ               tick_task_obj;
-PORT_STACK                 tick_task_stack[TICK_TASK_STACK_SIZE];
-RAW_SEMAPHORE              tick_semaphore_obj;
+RAW_TASK_OBJ              tick_task_obj;
+PORT_STACK                tick_task_stack[TICK_TASK_STACK_SIZE];
+RAW_SEMAPHORE             tick_semaphore_obj;
 
 #endif
 
@@ -120,22 +155,22 @@ RAW_U8           raw_rdy_tbl[RAW_IDLE_RDY_TBL_SIZE];
 LIST             raw_idle_tick_head;
 
 const RAW_U8     raw_idle_map_table[256] = {
-    0u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, 3u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, /* 0x00 to 0x0F                   */
-    4u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, 3u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, /* 0x10 to 0x1F                   */
-    5u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, 3u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, /* 0x20 to 0x2F                   */
-    4u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, 3u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, /* 0x30 to 0x3F                   */
-    6u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, 3u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, /* 0x40 to 0x4F                   */
-    4u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, 3u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, /* 0x50 to 0x5F                   */
-    5u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, 3u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, /* 0x60 to 0x6F                   */
-    4u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, 3u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, /* 0x70 to 0x7F                   */
-    7u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, 3u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, /* 0x80 to 0x8F                   */
-    4u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, 3u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, /* 0x90 to 0x9F                   */
-    5u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, 3u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, /* 0xA0 to 0xAF                   */
-    4u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, 3u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, /* 0xB0 to 0xBF                   */
-    6u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, 3u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, /* 0xC0 to 0xCF                   */
-    4u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, 3u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, /* 0xD0 to 0xDF                   */
-    5u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, 3u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, /* 0xE0 to 0xEF                   */
-    4u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, 3u, 0u, 1u, 0u, 2u, 0u, 1u, 0u  /* 0xF0 to 0xFF                   */
+    0u,  0u, 8u, 0u, 16u, 0u, 8u, 0u, 24u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 
+    32u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 24u, 0u, 8u, 0u, 16u, 0u, 8u, 0u,
+    40u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 24u, 0u, 8u, 0u, 16u, 0u, 8u, 0u,
+    32u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 24u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 
+    48u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 24u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 
+    32u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 24u, 0u, 8u, 0u, 16u, 0u, 8u, 0u,
+    40u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 24u, 0u, 8u, 0u, 16u, 0u, 8u, 0u,
+    32u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 24u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 
+    56u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 24u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 
+    32u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 24u, 0u, 8u, 0u, 16u, 0u, 8u, 0u,
+    40u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 24u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 
+    32u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 24u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 
+    48u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 24u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 
+    32u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 24u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 
+    40u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 24u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 
+    32u, 0u, 8u, 0u, 16u, 0u, 8u, 0u, 24u, 0u, 8u, 0u, 16u, 0u, 8u, 0u 
 };
 
 #endif

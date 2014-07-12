@@ -48,6 +48,7 @@ RAW_U16 raw_semaphore_create(RAW_SEMAPHORE *semaphore_ptr, RAW_U8 *name_ptr, RAW
 RAW_U16 raw_semaphore_put(RAW_SEMAPHORE *semaphore_ptr);
 RAW_U16 raw_semaphore_put_all(RAW_SEMAPHORE *semaphore_ptr);
 RAW_U16 raw_semphore_send_notify(RAW_SEMAPHORE *semaphore_ptr, SEMPHORE_SEND_NOTIFY notify_function);
+RAW_U16 raw_semaphore_put_notify(RAW_SEMAPHORE *semaphore_ptr);
 RAW_U16 raw_semaphore_get(RAW_SEMAPHORE *semaphore_ptr, RAW_TICK_TYPE wait_option);
 RAW_U16 semaphore_put(RAW_SEMAPHORE *semaphore_ptr, RAW_U8 opt_wake_all);
 

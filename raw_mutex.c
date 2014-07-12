@@ -255,6 +255,20 @@ RAW_VOID mtx_chg_pri(RAW_TASK_OBJ *tcb, RAW_U8 oldpri)
 	RAW_TASK_OBJ	*mtxtsk;
 
 	mtxcb = (RAW_MUTEX	*)(tcb->block_obj);
+
+	/*mutex_recursion_levels can never deeper than 5 levles, anyway it is the design fault*/
+	if (mutex_recursion_levels > 5) {
+
+		return;
+	}
+
+	mutex_recursion_levels++;
+
+	/*update max mutex recursion levels for debug, mainly help to find the mutex design fault*/
+	if (mutex_recursion_levels > mutex_recursion_max_levels) {
+
+		mutex_recursion_max_levels = mutex_recursion_levels;
+	}
 	
 	if (mtxcb->common_block_obj.object_type == RAW_MUTEX_OBJ_TYPE) {
 		
@@ -286,6 +300,8 @@ RAW_VOID mtx_chg_pri(RAW_TASK_OBJ *tcb, RAW_U8 oldpri)
 		
 	}
 
+	mutex_recursion_levels--;
+	
 }
 
 
@@ -574,7 +590,7 @@ RAW_U16 raw_mutex_put(RAW_MUTEX *mutex_ptr)
 	
 	RAW_CRITICAL_EXIT();
 
-	do_possible_sche();                                       
+	raw_sched();                                       
 
 	return RAW_SUCCESS;
 	
@@ -684,7 +700,7 @@ RAW_U16 raw_mutex_delete(RAW_MUTEX *mutex_ptr)
 
 	TRACE_MUTEX_DELETE(raw_task_active, mutex_ptr);
 		
-	do_possible_sche(); 
+	raw_sched(); 
 	
 	return RAW_SUCCESS;
 }

@@ -30,14 +30,46 @@
 #ifndef RAW_CRITICAL_H
 #define RAW_CRITICAL_H
 
+
+#if (RAW_CPU_INT_DIS_MEASURE_CHECK > 0)
+                                                                      
+                                                                       
+#define  RAW_CPU_DISABLE()                                       \
+		do {                                                     \
+			USER_CPU_INT_DISABLE();                              \
+			int_disable_measure_start();                         \
+		} while (0)
+
+#define  RAW_CPU_ENABLE()                                       \
+		do {                                                    \
+			int_disable_measure_stop();                         \
+			USER_CPU_INT_ENABLE();                              \
+		} while (0)
+
+
+#else
+
+#define  RAW_CPU_DISABLE()                                      \
+		do {                                                    \
+			USER_CPU_INT_DISABLE();                             \
+		} while (0)
+
+#define  RAW_CPU_ENABLE()                                       \
+		do {                                                    \
+			USER_CPU_INT_ENABLE();                              \
+		} while (0)
+		
+#endif
+
+
 #if (CONFIG_RAW_ZERO_INTERRUPT > 0)
 
                                                               
 #define  RAW_CRITICAL_ENTER()                                    \
 		do {                                                     \
-			RAW_CPU_DISABLE();                                   \
+			USER_CPU_INT_DISABLE();                                   \
 			raw_sched_lock++;                                    \
-			RAW_CPU_ENABLE();                                    \
+			USER_CPU_INT_ENABLE();                                    \
 		} while (0)
 
 
@@ -48,9 +80,9 @@
 				hybrid_int_process();                            \
 			}                                                    \
 			else {                                               \
-				RAW_CPU_DISABLE();                               \
+				USER_CPU_INT_DISABLE();                               \
 				raw_sched_lock--;                                \
-				RAW_CPU_ENABLE();                                \
+				USER_CPU_INT_ENABLE();                                \
 			}                                                    \
 		} while (0)
 

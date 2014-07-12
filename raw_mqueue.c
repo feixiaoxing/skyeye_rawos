@@ -162,7 +162,7 @@ static RAW_U16 internal_raw_mq_send(RAW_MQUEUE *p_q, RAW_VOID *p_void, RAW_U32 s
 
 	raw_enable_sche();
 	
-   	do_possible_sche();
+   	raw_sched();
 	
 	return RAW_SUCCESS;
 
@@ -458,7 +458,7 @@ RAW_U16 raw_mqueue_delete(RAW_MQUEUE *p_q)
 	
 	RAW_CRITICAL_EXIT();
 
-	do_possible_sche(); 
+	raw_sched(); 
 	
 	return RAW_SUCCESS;
 	

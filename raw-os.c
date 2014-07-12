@@ -21,30 +21,35 @@
     for full details of how and when the exception can be applied.
 */
 
-/* 	2012-4  Created by jorya_txj
+
+/* 	2014-7  Created by jorya_txj
   *	xxxxxx   please added here
   */
 
+#include "raw_obj.c"
+#include "raw_sched.c"
+#include "raw_pend.c"
+#include "raw_task.c"
+#include "raw_task_0.c"
+#include "raw_block.c"
+#include "raw_byte.c"
+#include "raw_event.c"
+#include "raw_idle.c"
+#include "raw_idle_event.c"
+#include "raw_mqueue.c"
+#include "raw_mutex.c"
+#include "raw_queue.c"
+#include "raw_queue_buffer.c"
+#include "raw_queue_size.c"
+#include "raw_sem.c"
+#include "raw_stat.c"
+#include "raw_stm.c"
+#include "raw_system.c"
+#include "raw_task_queue_size.c"
+#include "raw_task_sem.c"
+#include "raw_tick.c"
+#include "raw_timer.c"
 
-#ifndef RAW_CPU_H
-#define RAW_CPU_H
 
-#define  NEED_STATUS
 
-typedef  unsigned int        CPU_SR;                    
-
-                                                              
-#ifdef   NEED_STATUS
-#define  RAW_SR_ALLOC()           CPU_SR  cpu_sr = (CPU_SR)0
-#else
-#define  RAW_SR_ALLOC() 
-#endif
-
-													 											
-#define  USER_CPU_INT_DISABLE()        {cpu_sr = OS_CPU_SR_Save();}
-#define  USER_CPU_INT_ENABLE()         {OS_CPU_SR_Restore(cpu_sr);}
-
-#define CONTEXT_SWITCH()  port_task_switch()
-
-#endif
 

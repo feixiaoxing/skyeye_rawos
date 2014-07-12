@@ -81,30 +81,11 @@ RAW_U16 task_0_tick_post(void)
 {
 	RAW_U16 ret;
 	
-	#if (CONFIG_RAW_ZERO_INTERRUPT > 0)
+	ret = raw_task_0_post(&task_0_event_handler, raw_task_active->priority, 0);
 	
-	if (raw_sched_lock) {
-		
-		ret = raw_task_0_post(&task_0_event_handler, raw_task_active->priority, 0);
-	}
-
-	else {
-		
-		task_0_tick_handler(raw_task_active->priority, 0);
-		ret = RAW_SUCCESS;
-
-	}
-
-	#else 
-
-	task_0_tick_handler(raw_task_active->priority, 0);
-	ret = RAW_SUCCESS;
-
-	#endif
-
 	return ret;
-
 }
+
 
 static RAW_U16 task_0_post(EVENT_HANLDER *p, TASK_0_EVENT_TYPE ev, void *event_data, RAW_U8 opt_send_method)
 {
@@ -231,16 +212,16 @@ static void task_0_process(void *pa)
 	pa = pa;
 
 	/*to prevent interrupt happen here to cause system crash at task 0 start*/
-	RAW_CPU_DISABLE();
+	USER_CPU_INT_DISABLE();
 	
 	remove_ready_list(&raw_ready_queue, &raw_task_0_obj);
 	
-	RAW_CPU_ENABLE();
+	USER_CPU_INT_ENABLE();
 	
 	while (1) {
 
 		/*Get the message info and update it*/
-		RAW_CPU_DISABLE();
+		USER_CPU_INT_DISABLE();
 
 		if (task_0_events) {
 
@@ -261,7 +242,7 @@ static void task_0_process(void *pa)
 			/*lock the scheduler, so event handler can not be switched out*/
 			raw_sched_lock = 1u;
 			
-			RAW_CPU_ENABLE();
+			USER_CPU_INT_ENABLE();
 
 			/*exceute the event handler*/
 			receiver->handle_event(ev, data_temp);
@@ -275,7 +256,7 @@ static void task_0_process(void *pa)
 			get_ready_task(&raw_ready_queue);
 			CONTEXT_SWITCH();
 
-			RAW_CPU_ENABLE();
+			USER_CPU_INT_ENABLE();
 
 		}
 			
@@ -297,7 +278,7 @@ void hybrid_int_process(void)
 
 	while (1) {
 		
-		RAW_CPU_DISABLE(); 
+		USER_CPU_INT_DISABLE(); 
 		
 		if (task_0_events) {
 
@@ -305,7 +286,7 @@ void hybrid_int_process(void)
 			if (raw_int_nesting) {
 
 				raw_sched_lock = 0;
-				RAW_CPU_ENABLE();
+				USER_CPU_INT_ENABLE();
 				return;
 			}
 
@@ -323,7 +304,7 @@ void hybrid_int_process(void)
 					task_0_event_end = 0;
 				}
 				
-				RAW_CPU_ENABLE();
+				USER_CPU_INT_ENABLE();
 
 				/*exceute the event handler*/
 				hybrid_receiver->handle_event(hybrid_ev, hybrid_data_temp);
@@ -348,7 +329,7 @@ void hybrid_int_process(void)
 				/*if highest task is currently task, then no need to do switch and just return*/
 				if (high_ready_obj == raw_task_active) { 
 					
-					RAW_CPU_ENABLE();                                     
+					USER_CPU_INT_ENABLE();                                     
 					return;
 
 				}
@@ -356,7 +337,7 @@ void hybrid_int_process(void)
 				CONTEXT_SWITCH();
 			}
 			
-			RAW_CPU_ENABLE();
+			USER_CPU_INT_ENABLE();
 			return;
 
 		}
@@ -373,17 +354,28 @@ void hybrid_int_process(void)
 static void int_msg_handler(TASK_0_EVENT_TYPE ev, void *msg_data)
 {
 	OBJECT_INT_MSG *int_msg;
+	RAW_U16 int_msg_ret;
 	
 	RAW_SR_ALLOC();
 	
 	int_msg = msg_data;
+	int_msg_ret = RAW_SYSTEM_ERROR;
 	
 	switch (ev) {
 
+		#if (CONFIG_RAW_TASK_SUSPEND > 0)
+		
+		case RAW_TYPE_SUSPEND:
+			int_msg_ret = task_suspend((RAW_TASK_OBJ *)(int_msg->object));
+			break;
+
+			
+		#endif
+		
 		#if (CONFIG_RAW_TASK_RESUME > 0)
 		
 		case RAW_TYPE_RESUME:
-			task_resume((RAW_TASK_OBJ *)(int_msg->object));
+			int_msg_ret = task_resume((RAW_TASK_OBJ *)(int_msg->object));
 			break;
 
 			
@@ -392,11 +384,11 @@ static void int_msg_handler(TASK_0_EVENT_TYPE ev, void *msg_data)
 		#if (CONFIG_RAW_SEMAPHORE > 0)
 		
 		case RAW_TYPE_SEM:
-			semaphore_put((RAW_SEMAPHORE *)(int_msg->object), WAKE_ONE_SEM);
+			int_msg_ret = semaphore_put((RAW_SEMAPHORE *)(int_msg->object), WAKE_ONE_SEM);
 			break;
 
 		case RAW_TYPE_SEM_ALL:
-			semaphore_put((RAW_SEMAPHORE *)(int_msg->object), WAKE_ALL_SEM);
+			int_msg_ret = semaphore_put((RAW_SEMAPHORE *)(int_msg->object), WAKE_ALL_SEM);
 			break;
 			
 		#endif
@@ -405,40 +397,32 @@ static void int_msg_handler(TASK_0_EVENT_TYPE ev, void *msg_data)
 		#if (CONFIG_RAW_QUEUE > 0)
 		
 		case RAW_TYPE_Q_FRONT:
-			msg_post((RAW_QUEUE *)(int_msg->object), int_msg->msg, SEND_TO_FRONT, WAKE_ONE_QUEUE);
+			int_msg_ret = msg_post((RAW_QUEUE *)(int_msg->object), int_msg->msg, SEND_TO_FRONT, WAKE_ONE_QUEUE);
 			break;
 
 		case RAW_TYPE_Q_END:
-			msg_post((RAW_QUEUE *)(int_msg->object), int_msg->msg, SEND_TO_END, WAKE_ONE_QUEUE);
+			int_msg_ret = msg_post((RAW_QUEUE *)(int_msg->object), int_msg->msg, SEND_TO_END, WAKE_ONE_QUEUE);
 			break;
 
 		case RAW_TYPE_Q_ALL:
-			msg_post((RAW_QUEUE *)(int_msg->object), int_msg->msg, int_msg->opt, WAKE_ALL_QUEUE);
+			int_msg_ret = msg_post((RAW_QUEUE *)(int_msg->object), int_msg->msg, int_msg->opt, WAKE_ALL_QUEUE);
 			break;
 
 		#endif
 
-		#if (CONFIG_RAW_QUEUE_BUFFER > 0)
 
-		case RAW_TYPE_Q_BUFFER_END:
-			queue_buffer_post((RAW_QUEUE_BUFFER *)(int_msg->object), int_msg->msg, int_msg->msg_size, SEND_TO_END);
-			break;
-
-		#endif
-
-		
 		#if (CONFIG_RAW_QUEUE_SIZE > 0)
 		
 		case RAW_TYPE_Q_SIZE_FRONT:
-			msg_size_post((RAW_QUEUE_SIZE *)(int_msg->object), int_msg->msg, int_msg->msg_size, SEND_TO_FRONT, WAKE_ONE_QUEUE);
+			int_msg_ret = msg_size_post((RAW_QUEUE_SIZE *)(int_msg->object), int_msg->msg, int_msg->msg_size, SEND_TO_FRONT, WAKE_ONE_QUEUE);
 			break;
 
 		case RAW_TYPE_Q_SIZE_END:
-			msg_size_post((RAW_QUEUE_SIZE *)(int_msg->object), int_msg->msg, int_msg->msg_size, SEND_TO_END, WAKE_ONE_QUEUE);
+			int_msg_ret = msg_size_post((RAW_QUEUE_SIZE *)(int_msg->object), int_msg->msg, int_msg->msg_size, SEND_TO_END, WAKE_ONE_QUEUE);
 			break;
 
 		case RAW_TYPE_Q_SIZE_ALL:
-			msg_size_post((RAW_QUEUE_SIZE *)(int_msg->object), int_msg->msg, int_msg->msg_size, int_msg->opt, WAKE_ALL_QUEUE);
+			int_msg_ret = msg_size_post((RAW_QUEUE_SIZE *)(int_msg->object), int_msg->msg, int_msg->msg_size, int_msg->opt, WAKE_ALL_QUEUE);
 			break;
 
 		#endif
@@ -446,7 +430,7 @@ static void int_msg_handler(TASK_0_EVENT_TYPE ev, void *msg_data)
 		#if (CONFIG_RAW_EVENT > 0)
 		
 		case RAW_TYPE_EVENT:
-			event_set((RAW_EVENT *)(int_msg->object), int_msg->event_flags, int_msg->opt);
+			int_msg_ret = event_set((RAW_EVENT *)(int_msg->object), int_msg->event_flags, int_msg->opt);
 			break;
 			
 		#endif
@@ -454,11 +438,11 @@ static void int_msg_handler(TASK_0_EVENT_TYPE ev, void *msg_data)
 		#if (CONFIG_RAW_IDLE_EVENT > 0)
 		
 		case RAW_TYPE_IDLE_END_EVENT_POST:
-			event_post((ACTIVE_EVENT_STRUCT *)(int_msg->object), int_msg->msg_size, int_msg->msg, SEND_TO_END);
+			int_msg_ret = event_post((ACTIVE_EVENT_STRUCT *)(int_msg->object), int_msg->msg_size, int_msg->msg, SEND_TO_END);
 			break;
 
 		case RAW_TYPE_IDLE_FRONT_EVENT_POST:
-			event_post((ACTIVE_EVENT_STRUCT *)(int_msg->object), int_msg->msg_size, int_msg->msg, SEND_TO_FRONT);
+			int_msg_ret = event_post((ACTIVE_EVENT_STRUCT *)(int_msg->object), int_msg->msg_size, int_msg->msg, SEND_TO_FRONT);
 			break;
 			
 		#endif
@@ -468,6 +452,11 @@ static void int_msg_handler(TASK_0_EVENT_TYPE ev, void *msg_data)
 
 
 
+	}
+
+	if (int_msg_ret != RAW_SUCCESS) {
+
+		RAW_ASSERT(0);
 	}
 
 	RAW_CPU_DISABLE();

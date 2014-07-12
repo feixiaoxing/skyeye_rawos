@@ -21,30 +21,21 @@
     for full details of how and when the exception can be applied.
 */
 
-/* 	2012-4  Created by jorya_txj
+/* 	2014-1  Created by jorya_txj
   *	xxxxxx   please added here
   */
 
+#ifndef RAW_STAT_H
+#define RAW_STAT_H
 
-#ifndef RAW_CPU_H
-#define RAW_CPU_H
-
-#define  NEED_STATUS
-
-typedef  unsigned int        CPU_SR;                    
-
-                                                              
-#ifdef   NEED_STATUS
-#define  RAW_SR_ALLOC()           CPU_SR  cpu_sr = (CPU_SR)0
-#else
-#define  RAW_SR_ALLOC() 
-#endif
-
-													 											
-#define  USER_CPU_INT_DISABLE()        {cpu_sr = OS_CPU_SR_Save();}
-#define  USER_CPU_INT_ENABLE()         {OS_CPU_SR_Restore(cpu_sr);}
-
-#define CONTEXT_SWITCH()  port_task_switch()
+void raw_stack_check(void);
+void sche_disable_measure_start(void);
+void sche_disable_measure_stop(void);
+void int_disable_measure_start(void);
+void int_disable_measure_stop(void);
+void measure_overhead(void);
+void cpu_task_start(void);
+void cpu_task_init(void);
 
 #endif
 

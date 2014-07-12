@@ -223,7 +223,7 @@ RAW_U16 msg_size_post(RAW_QUEUE_SIZE *p_q, RAW_MSG_SIZE *p_void,  MSG_SIZE_TYPE 
 	
 	RAW_CRITICAL_EXIT();
 
-	do_possible_sche();    
+	raw_sched();    
 	return RAW_SUCCESS;
 }
 
@@ -258,7 +258,7 @@ RAW_U16 msg_size_post(RAW_QUEUE_SIZE *p_q, RAW_MSG_SIZE *p_void,  MSG_SIZE_TYPE 
 *						RAW_BLOCK_TIMEOUT: queue is still full during waiting time when sending msg.
 *						RAW_BLOCK_ABORT:queue is aborted during waiting time when sending msg.
 *						RAW_STATE_UNKNOWN: possibly system error.
-* Note(s)    	if no msg received then msg will get null pointer(0).
+* Note(s)    	if no msg received then msg will get null pointer(0).ISR can call this function if only wait_option equal RAW_NO_WAIT.
 *
 *             
 ************************************************************************************************************************
@@ -276,7 +276,7 @@ RAW_U16 raw_queue_size_receive(RAW_QUEUE_SIZE *p_q, RAW_TICK_TYPE wait_option, R
 	#if (RAW_QUEUE_SIZE_FUNCTION_CHECK > 0)
 	
 
-	if (raw_int_nesting) {
+	if (raw_int_nesting && (wait_option != RAW_NO_WAIT)) {
 		
 		return RAW_NOT_CALLED_BY_ISR;
 		
@@ -295,6 +295,16 @@ RAW_U16 raw_queue_size_receive(RAW_QUEUE_SIZE *p_q, RAW_TICK_TYPE wait_option, R
 	if (receive_size == 0) {
 
 		return RAW_NULL_POINTER;
+	}
+	
+	#endif
+
+	#if (CONFIG_RAW_ZERO_INTERRUPT > 0)
+
+	if (raw_int_nesting) {
+		
+		return RAW_NOT_CALLED_BY_ISR;
+		
 	}
 	
 	#endif
@@ -554,6 +564,75 @@ RAW_U16 raw_queue_size_all_post(RAW_QUEUE_SIZE *p_q, RAW_VOID  *p_void, MSG_SIZE
 }
 
 
+/*
+************************************************************************************************************************
+*                                    Check whether queue size obj is full or not
+*
+* Description: This function is called to Check whether queue size obj is full or not.
+*
+* Arguments  :p_q is the address of the queue object
+*                 -----
+*
+*
+* Returns			
+*		1: queue_size obj is full
+*		0: queue_size obj is not full
+* 
+*Note(s)   
+*
+*             
+************************************************************************************************************************
+*/
+RAW_U16 raw_queue_size_full_check(RAW_QUEUE_SIZE *p_q)
+{
+	RAW_SR_ALLOC();
+
+	RAW_U16 full_check_ret;
+	
+	#if (RAW_QUEUE_FUNCTION_CHECK > 0)
+
+	if (p_q == 0) {
+
+		return RAW_NULL_OBJECT;
+	}
+
+	#endif
+
+
+	#if (CONFIG_RAW_ZERO_INTERRUPT > 0)
+
+	if (raw_int_nesting) {
+		
+		return RAW_NOT_CALLED_BY_ISR;
+		
+	}
+	
+	#endif
+
+	RAW_CRITICAL_ENTER();
+
+	if (p_q->common_block_obj.object_type != RAW_QUEUE_SIZE_OBJ_TYPE) {
+
+		RAW_CRITICAL_EXIT();
+		return RAW_ERROR_OBJECT_TYPE;
+	}
+
+	if (p_q->queue_current_msg >= p_q->queue_msg_size) {   
+
+		full_check_ret = 1u;
+	}
+
+	else {
+
+		full_check_ret = 0u;
+
+	}
+
+	RAW_CRITICAL_EXIT();
+
+	return full_check_ret;
+
+}
 
 
 /*
@@ -688,7 +767,7 @@ RAW_U16 raw_queue_size_delete(RAW_QUEUE_SIZE *p_q)
 
 	TRACE_QUEUE_SIZE_DELETE(raw_task_active, p_q);
 
-	do_possible_sche(); 
+	raw_sched(); 
 	
 	return RAW_SUCCESS;
 	
@@ -711,6 +790,7 @@ RAW_U16 raw_queue_size_delete(RAW_QUEUE_SIZE *p_q)
 *               queue_current_msg will be filled with the current used numbers of queue size msg.  			         
 * Returns			
 *              RAW_SUCCESS: raw os return success
+*              RAW_NOT_CALLED_BY_ISR: not called by isr when CONFIG_RAW_ZERO_INTERRUPT is open.
 * Note(s)    	
 *
 *             
@@ -742,11 +822,21 @@ RAW_U16 raw_queue_size_get_information(RAW_QUEUE_SIZE *p_q, MSG_SIZE_TYPE *queue
 	
 	#endif
 
-	RAW_CPU_DISABLE();
+	#if (CONFIG_RAW_ZERO_INTERRUPT > 0)
+
+	if (raw_int_nesting) {
+		
+		return RAW_NOT_CALLED_BY_ISR;
+		
+	}
+	
+	#endif
+
+	RAW_CRITICAL_ENTER();
 
 	if (p_q->common_block_obj.object_type != RAW_QUEUE_SIZE_OBJ_TYPE) {
 
-		RAW_CPU_ENABLE();
+		RAW_CRITICAL_EXIT();
 		return RAW_ERROR_OBJECT_TYPE;
 	}
 	
@@ -754,7 +844,7 @@ RAW_U16 raw_queue_size_get_information(RAW_QUEUE_SIZE *p_q, MSG_SIZE_TYPE *queue
 	*queue_current_msg = p_q->queue_current_msg;
 	*queue_peak_msg_size = p_q->peak_numbers;
 	
-	RAW_CPU_ENABLE();
+	RAW_CRITICAL_EXIT();
 
 	return RAW_SUCCESS;
 

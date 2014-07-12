@@ -90,11 +90,7 @@ typedef struct RAW_TASK_OBJ
 	struct RAW_MUTEX         *mtxlist;
 	#endif
 
-	#if (RAW_SYSTEM_CHECK > 0)
-
-	LIST                     stack_check_list;
-	
-	#endif
+	LIST                     task_debug_list;
 	
 	RAW_U32                  stack_size;
 	
@@ -108,10 +104,12 @@ typedef struct RAW_TASK_OBJ
 
 	RAW_VOID                 *msg;
 
-	#if ((CONFIG_RAW_QUEUE_SIZE > 0) || (CONFIG_RAW_QUEUE_BUFFER > 0))
 	MSG_SIZE_TYPE            msg_size;
-	#endif
 
+	#if (CONFIG_RAW_QUEUE_BUFFER > 0)
+	MSG_SIZE_TYPE            qb_msg_size;
+	#endif
+	
 	RAW_U8                   *task_name;
 
 	RAW_U8                   task_state; 
@@ -151,19 +149,12 @@ typedef	struct RAW_RUN_QUEUE {
 } RAW_RUN_QUEUE;
 		
 
-#if (RAW_SYSTEM_CHECK > 0)
-
-typedef struct RAW_SYSTEM_DEBUG {
-
+typedef struct RAW_OBJECT_DEBUG {
+	
 	/*Debug task head*/
 	LIST                      task_head;
-	/*if this task is deleted then move after_delete_list to next task*/
-	LIST                      *after_delete_list;
 	
-} RAW_SYSTEM_DEBUG;
+} RAW_OBJECT_DEBUG;
 
 #endif
-
-#endif
-
 

@@ -3,7 +3,7 @@ architecture: arm920
 
 chip: s3c2410
 
-os: raw-os 1.04
+os: raw-os 1.053
 
 compiler: arm-linux-gcc 4.4.3
 

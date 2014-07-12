@@ -193,7 +193,7 @@ RAW_U16 msg_post(RAW_QUEUE *p_q, RAW_VOID *p_void, RAW_U8 opt_send_method, RAW_U
 	
 	RAW_CRITICAL_EXIT();
 
-	do_possible_sche();    
+	raw_sched();    
 	return RAW_SUCCESS;
 }
 
@@ -241,6 +241,8 @@ RAW_U16 raw_queue_front_post(RAW_QUEUE *p_q, RAW_VOID *p_void)
 	
 	#endif
 
+	TRACE_QUEUE_FP_TIME_RECORD(p_q, p_void);
+	
 	#if (CONFIG_RAW_ZERO_INTERRUPT > 0)
 
 	if (raw_int_nesting && raw_sched_lock) {
@@ -295,6 +297,8 @@ RAW_U16 raw_queue_end_post(RAW_QUEUE *p_q, RAW_VOID *p_void)
 	
 	#endif
 
+	TRACE_QUEUE_EP_TIME_RECORD(p_q, p_void);
+	
 	#if (CONFIG_RAW_ZERO_INTERRUPT > 0)
 	
 	if (raw_int_nesting && raw_sched_lock) {
@@ -308,6 +312,59 @@ RAW_U16 raw_queue_end_post(RAW_QUEUE *p_q, RAW_VOID *p_void)
 	
 }
 
+
+/*
+************************************************************************************************************************
+*                                   Notify function call back 
+*
+* Description: This function is called to post a msg to the queue end and implement FIFO.
+*
+* Arguments  :p_q is the address of the queue object
+*                 -----
+*                  p_void  is the address of the msg
+*                 -----
+*                 
+*				         
+* Returns			
+*			RAW_SUCCESS: raw os return success
+*			RAW_MSG_MAX:queue is full 
+*			
+*			
+*			
+* Note(s)    	
+*
+*             
+************************************************************************************************************************
+*/
+RAW_U16 raw_queue_post_notify(RAW_QUEUE *p_q, RAW_VOID *p_void)
+{
+	#if (RAW_QUEUE_FUNCTION_CHECK > 0)
+
+	if (p_q == 0) {
+		
+		return RAW_NULL_OBJECT;
+	}
+
+	
+	if (p_void == 0) {
+		
+		return RAW_NULL_POINTER;
+	}
+	
+	#endif
+
+	#if (CONFIG_RAW_ZERO_INTERRUPT > 0)
+	
+	if (raw_int_nesting) {
+		
+		return int_msg_post(RAW_TYPE_Q_END, p_q, p_void, 0, 0, 0);
+	}
+	
+	#endif
+	
+	return msg_post(p_q, p_void,  SEND_TO_END, WAKE_ONE_QUEUE);
+	
+}
 
 
 /*
@@ -350,6 +407,8 @@ RAW_U16 raw_queue_all_post(RAW_QUEUE *p_q, RAW_VOID *p_void, RAW_U8 opt)
 	}
 	
 	#endif
+
+	TRACE_QUEUE_AP_TIME_RECORD(p_q, p_void, opt);
 	
 	#if (CONFIG_RAW_ZERO_INTERRUPT > 0)
 	
@@ -447,7 +506,7 @@ RAW_U16 raw_queue_send_notify(RAW_QUEUE *p_q, QUEUE_SEND_NOTIFY notify_function)
 *						RAW_BLOCK_TIMEOUT: queue is still full during waiting time when sending msg.
 *						RAW_BLOCK_ABORT:queue is aborted during waiting time when sending msg.
 *						RAW_STATE_UNKNOWN: possibly system error.
-* Note(s)    	if no msg received then msg will get null pointer(0).
+* Note(s)    	if no msg received then msg will get null pointer(0). ISR can call this function if only wait_option equal RAW_NO_WAIT.
 *
 *             
 ************************************************************************************************************************
@@ -462,7 +521,7 @@ RAW_U16 raw_queue_receive(RAW_QUEUE *p_q, RAW_TICK_TYPE wait_option, RAW_VOID **
 
 	#if (RAW_QUEUE_FUNCTION_CHECK > 0)
 
-	if (raw_int_nesting) {
+	if (raw_int_nesting && (wait_option != RAW_NO_WAIT)) {
 		
 		return RAW_NOT_CALLED_BY_ISR;
 		
@@ -477,6 +536,16 @@ RAW_U16 raw_queue_receive(RAW_QUEUE *p_q, RAW_TICK_TYPE wait_option, RAW_VOID **
 	if (msg == 0) {
 		
 		return RAW_NULL_POINTER;
+	}
+	
+	#endif
+
+	#if (CONFIG_RAW_ZERO_INTERRUPT > 0)
+
+	if (raw_int_nesting) {
+		
+		return RAW_NOT_CALLED_BY_ISR;
+		
 	}
 	
 	#endif
@@ -534,6 +603,75 @@ RAW_U16 raw_queue_receive(RAW_QUEUE *p_q, RAW_TICK_TYPE wait_option, RAW_VOID **
 	
 	return result;
 	
+}
+
+/*
+************************************************************************************************************************
+*                                    Check whether queue  obj is full or not
+*
+* Description: This function is called to Check whether queue obj is full or not.
+*
+* Arguments  :p_q is the address of the queue object
+*                 -----
+*
+*
+* Returns			
+*		1: queue obj is full
+*		0: queue obj is not full
+* 
+*Note(s)   
+*
+*             
+************************************************************************************************************************
+*/
+RAW_U16 raw_queue_full_check(RAW_QUEUE *p_q)
+{
+	RAW_SR_ALLOC();
+
+	RAW_U16 full_check_ret;
+	
+	#if (RAW_QUEUE_FUNCTION_CHECK > 0)
+
+	if (p_q == 0) {
+
+		return RAW_NULL_OBJECT;
+	}
+
+	#endif
+
+	#if (CONFIG_RAW_ZERO_INTERRUPT > 0)
+
+	if (raw_int_nesting) {
+		
+		return RAW_NOT_CALLED_BY_ISR;
+		
+	}
+	
+	#endif
+
+	RAW_CRITICAL_ENTER();
+
+	if (p_q->common_block_obj.object_type != RAW_QUEUE_OBJ_TYPE) {
+		
+		RAW_CRITICAL_EXIT();
+		return RAW_ERROR_OBJECT_TYPE;
+	}
+
+	if (p_q->msg_q.current_numbers >= p_q->msg_q.size) {  
+
+		full_check_ret = 1u;
+	}
+
+	else {
+
+		full_check_ret = 0u;
+
+	}
+
+	RAW_CRITICAL_EXIT();
+
+	return full_check_ret;
+
 }
 
 
@@ -659,7 +797,7 @@ RAW_U16 raw_queue_delete(RAW_QUEUE *p_q)
 
 	TRACE_QUEUE_DELETE(raw_task_active, p_q);
 
-	do_possible_sche(); 
+	raw_sched(); 
 	
 	return RAW_SUCCESS;
 	
@@ -681,6 +819,7 @@ RAW_U16 raw_queue_delete(RAW_QUEUE *p_q)
 *				         
 * Returns			
 *			RAW_SUCCESS: raw os return success
+*                   RAW_NOT_CALLED_BY_ISR: not called by isr when CONFIG_RAW_ZERO_INTERRUPT is open.
 * Note(s)    	Commonly for debug purpose
 *
 *             
@@ -708,13 +847,21 @@ RAW_U16 raw_queue_get_information(RAW_QUEUE *p_q, RAW_MSG_INFO *msg_information)
 	
 	#endif
 
+	#if (CONFIG_RAW_ZERO_INTERRUPT > 0)
+
+	if (raw_int_nesting) {
+		
+		return RAW_NOT_CALLED_BY_ISR;
+		
+	}
 	
+	#endif
 	
-	RAW_CPU_DISABLE();
+	RAW_CRITICAL_ENTER();
 
 	if (p_q->common_block_obj.object_type !=  RAW_QUEUE_OBJ_TYPE) {
 		
-		RAW_CPU_ENABLE();
+		RAW_CRITICAL_EXIT();
 		return RAW_ERROR_OBJECT_TYPE;
 	}
 
@@ -729,7 +876,7 @@ RAW_U16 raw_queue_get_information(RAW_QUEUE *p_q, RAW_MSG_INFO *msg_information)
 	msg_information->msg_q.size = p_q->msg_q.size;
 	msg_information->suspend_entry = block_list_head->next;
 	
-	RAW_CPU_ENABLE();
+	RAW_CRITICAL_EXIT();
 
 	return RAW_SUCCESS;
 

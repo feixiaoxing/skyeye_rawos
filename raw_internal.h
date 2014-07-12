@@ -68,6 +68,9 @@ RAW_VOID mtx_chg_pri(RAW_TASK_OBJ *tcb, RAW_U8 oldpri);
 RAW_VOID raw_task_free_mutex(RAW_TASK_OBJ *tcb);
 RAW_VOID mutex_state_change(RAW_TASK_OBJ *tcb);
 void     tick_task_start(void);
+void     sche_disable_measure_start(void);
+void     sche_disable_measure_stop(void);
+
 
 
 extern RAW_TASK_OBJ                 *high_ready_obj;
@@ -83,7 +86,7 @@ extern RAW_U8                       raw_sched_lock;
 extern RAW_TICK_TYPE                raw_tick_count;
 
 extern RAW_TASK_OBJ                 raw_idle_obj;
-extern RAW_U32                      raw_idle_count;
+extern RAW_IDLE_COUNT_TYPE          raw_idle_count;
 extern PORT_STACK                   idle_stack[IDLE_STACK_SIZE];
 
 
@@ -96,6 +99,7 @@ extern RAW_U32                      raw_timer_ctrl;
 extern RAW_TASK_OBJ                 raw_timer_obj;
 extern PORT_STACK                   timer_task_stack[TIMER_STACK_SIZE];
 extern RAW_SEMAPHORE                timer_sem;
+extern RAW_MUTEX                    timer_mutex;
 #endif
 
 #if (CONFIG_RAW_TASK_0 > 0)
@@ -117,8 +121,36 @@ extern EVENT_HANLDER                msg_event_handler;
 
 #endif
 
-#if (RAW_SYSTEM_CHECK > 0)
-extern RAW_SYSTEM_DEBUG             system_debug;
+extern RAW_OBJECT_DEBUG             raw_task_debug;
+
+#if (CONFIG_RAW_MUTEX > 0)
+
+extern RAW_U8                       mutex_recursion_levels;
+extern RAW_U8                       mutex_recursion_max_levels;
+
+#endif
+
+#if (RAW_SCHE_LOCK_MEASURE_CHECK > 0)
+
+extern PORT_TIMER_TYPE              raw_sche_disable_time_start;
+extern PORT_TIMER_TYPE              raw_sche_disable_time_max;
+
+#endif
+
+#if (RAW_CONFIG_CPU_TIME > 0)
+
+extern PORT_TIMER_TYPE              system_meaure_overhead;
+
+#endif
+
+#if (RAW_CONFIG_CPU_TASK > 0)
+
+extern RAW_TASK_OBJ                 raw_cpu_obj;
+extern PORT_STACK                   cpu_task_stack[CPU_STACK_SIZE];
+extern RAW_IDLE_COUNT_TYPE          raw_idle_count_max;
+extern RAW_U32                      cpu_usuage;
+extern RAW_U32                      cpu_usuage_max;
+
 #endif
 
 
@@ -141,6 +173,14 @@ extern const RAW_U8                 raw_idle_map_table[256];
 extern RAW_U8                       raw_idle_rdy_grp;                     
 extern RAW_U8                       raw_rdy_tbl[8];
 extern LIST                         raw_idle_tick_head;
+
+#endif
+
+#if (RAW_CPU_INT_DIS_MEASURE_CHECK > 0)
+
+extern RAW_U16                      int_disable_times;
+extern PORT_TIMER_TYPE              raw_int_disable_time_start;
+extern PORT_TIMER_TYPE              raw_int_disable_time_max;
 
 #endif
 

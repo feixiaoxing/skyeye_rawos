@@ -74,7 +74,7 @@ RAW_INLINE RAW_BOOLEAN is_buffer_empty(RAW_QUEUE_BUFFER *q_b)
 RAW_U16 raw_queue_buffer_create(RAW_QUEUE_BUFFER *q_b, RAW_U8 *p_name, RAW_VOID *msg_buffer, MSG_SIZE_TYPE buffer_size, MSG_SIZE_TYPE max_msg_size)
 {
 	MSG_SIZE_TYPE bufsz;
-
+	RAW_U8        queue_buffer_align_mask;
 
 	#if (RAW_QUEUE_BUFFER_FUNCTION_CHECK > 0)
 
@@ -103,7 +103,14 @@ RAW_U16 raw_queue_buffer_create(RAW_QUEUE_BUFFER *q_b, RAW_U8 *p_name, RAW_VOID 
 		
 		return RAW_QUEUE_BUFFER_INVALID_SIZE;
 	}
-	
+
+	queue_buffer_align_mask = HEADERSZ - 1u;
+
+	if (((RAW_U32)msg_buffer & queue_buffer_align_mask)){                             
+
+		return RAW_INVALID_ALIGN;
+
+	}
 
 	/*init the queue blocked list*/
 	list_init(&q_b->common_block_obj.block_list);
@@ -242,7 +249,7 @@ RAW_U16 queue_buffer_post(RAW_QUEUE_BUFFER *q_b, RAW_VOID *p_void, MSG_SIZE_TYPE
 	task_ptr = list_entry(block_list_head->next, RAW_TASK_OBJ, task_list);
 	
 	raw_memcpy(task_ptr->msg, p_void, msg_size);
-	task_ptr->msg_size = msg_size;
+	task_ptr->qb_msg_size = msg_size;
 	
 	raw_wake_object(task_ptr);
 		
@@ -250,7 +257,7 @@ RAW_U16 queue_buffer_post(RAW_QUEUE_BUFFER *q_b, RAW_VOID *p_void, MSG_SIZE_TYPE
 
 	TRACE_QUEUE_BUFFER_WAKE_TASK(raw_task_active, list_entry(block_list_head->next, RAW_TASK_OBJ, task_list), p_void, msg_size, opt_send_method);
 
-	do_possible_sche();    
+	raw_sched();    
 	return RAW_SUCCESS;
 	
 
@@ -275,11 +282,11 @@ RAW_U16 queue_buffer_post(RAW_QUEUE_BUFFER *q_b, RAW_VOID *p_void, MSG_SIZE_TYPE
 *		RAW_SUCCESS: raw os return success
 *            RAW_EXCEED_QUEUE_BUFFER_MSG_SIZE: message size exceed the max defined message size.
 *		RAW_QUEUE_BUFFER_FULL:queue is full 
+*            RAW_NOT_CALLED_BY_ISR: not supported in interrupt when CONFIG_RAW_ZERO_INTERRUPT is enabled.
 *		
 *		
 *		
-* Note(s)    	
-*
+* Note(s)  This api is not supported in interrupt when CONFIG_RAW_ZERO_INTERRUPT is enabled.
 *             
 ************************************************************************************************************************
 */
@@ -309,14 +316,15 @@ RAW_U16 raw_queue_buffer_end_post(RAW_QUEUE_BUFFER *q_b, RAW_VOID *p_void, MSG_S
 	
 	#if (CONFIG_RAW_ZERO_INTERRUPT > 0)
 
-	if (raw_int_nesting && raw_sched_lock) {
+	if (raw_int_nesting) {
 		
-		return int_msg_post(RAW_TYPE_Q_BUFFER_END, q_b, p_void, msg_size, 0, 0);
+		return RAW_NOT_CALLED_BY_ISR;
+		
 	}
 	
 	#endif
 
-	 return queue_buffer_post(q_b, p_void, msg_size, SEND_TO_END);
+	return queue_buffer_post(q_b, p_void, msg_size, SEND_TO_END);
 
 }
 
@@ -421,7 +429,7 @@ RAW_U16 raw_queue_buffer_receive(RAW_QUEUE_BUFFER *q_b, RAW_TICK_TYPE wait_optio
 	/*if get the msg successful then take it*/
 	if (result == RAW_SUCCESS) {
 
-		*receive_size = raw_task_active->msg_size;
+		*receive_size = raw_task_active->qb_msg_size;
 	}
 	
 	return result;
@@ -553,7 +561,7 @@ RAW_U16 raw_queue_buffer_delete(RAW_QUEUE_BUFFER *q_b)
 	
 	RAW_CRITICAL_EXIT();
 
-	do_possible_sche(); 
+	raw_sched(); 
 	
 	return RAW_SUCCESS;
 	
@@ -607,11 +615,21 @@ RAW_U16 raw_queue_buffer_get_information(RAW_QUEUE_BUFFER  *q_b, RAW_U32 *queue_
 
 	#endif
 
-	RAW_CPU_DISABLE();
+	#if (CONFIG_RAW_ZERO_INTERRUPT > 0)
+
+	if (raw_int_nesting) {
+		
+		return RAW_NOT_CALLED_BY_ISR;
+		
+	}
+	
+	#endif
+
+	RAW_CRITICAL_ENTER();
 	
 	if (q_b->common_block_obj.object_type != RAW_QUEUE_BUFFER_OBJ_TYPE) {
 
-		RAW_CPU_ENABLE();
+		RAW_CRITICAL_EXIT();
 		return RAW_ERROR_OBJECT_TYPE;
 	}
 
@@ -619,7 +637,7 @@ RAW_U16 raw_queue_buffer_get_information(RAW_QUEUE_BUFFER  *q_b, RAW_U32 *queue_
 	
 	*queue_buffer_size = q_b->bufsz;
 
-	RAW_CPU_ENABLE();
+	RAW_CRITICAL_EXIT();
 	
 	return RAW_SUCCESS;
 

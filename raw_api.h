@@ -59,9 +59,10 @@ extern "C" {
 #include <raw_task_0.h>
 #include <raw_stm.h>
 #include <raw_idle_event.h>
-#include <raw_internal.h>
+#include <raw_stat.h>
 #include <raw_trace.h>
 #include <port.h>
+#include <raw_internal.h>
 
 #ifdef __cplusplus
 }

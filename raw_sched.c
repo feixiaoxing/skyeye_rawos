@@ -38,13 +38,13 @@ void raw_sched(void)
 		return;                                             
 	}
 
-	RAW_CPU_DISABLE();
+	USER_CPU_INT_DISABLE();
 	         
 	get_ready_task(&raw_ready_queue);
 
 	/*if highest task is currently task, then no need to do switch and just return*/
 	if (high_ready_obj == raw_task_active) {                 
-		RAW_CPU_ENABLE();                                     
+		USER_CPU_INT_ENABLE();                                     
 		return;
 	}
 
@@ -52,7 +52,7 @@ void raw_sched(void)
 
 	CONTEXT_SWITCH(); 
 
-	RAW_CPU_ENABLE();  
+	USER_CPU_INT_ENABLE();  
 
 }
 
@@ -86,11 +86,9 @@ RAW_U16 raw_os_init(void)
 	/*Init the tick heart system*/
 	tick_list_init();
 
-	#if (RAW_SYSTEM_CHECK > 0)
-	/*Init the task head list*/
-	list_init(&(system_debug.task_head));
-	#endif
-	
+	/*Init the task debug head list*/
+	list_init(&(raw_task_debug.task_head));
+
 	#if (CONFIG_RAW_USER_HOOK > 0)
 	raw_os_init_hook();
 	#endif
@@ -102,6 +100,7 @@ RAW_U16 raw_os_init(void)
 	
 	#if (CONFIG_RAW_TIMER > 0)
 	raw_timer_init();
+	raw_mutex_create(&timer_mutex, (RAW_U8 *)"timer_mutex", RAW_MUTEX_INHERIT_POLICY, 0);
 	#endif
 
 	#if (CONFIG_RAW_TASK_0 > 0)
@@ -110,6 +109,10 @@ RAW_U16 raw_os_init(void)
 
 	#if (CONFIG_RAW_TICK_TASK > 0)
 	tick_task_start();
+	#endif
+
+	#if (RAW_CONFIG_CPU_TASK > 0)
+	cpu_task_start();
 	#endif
 	
 	return RAW_SUCCESS;

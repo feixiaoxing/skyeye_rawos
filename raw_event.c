@@ -186,7 +186,7 @@ RAW_U16 raw_event_get(RAW_EVENT *event_ptr, RAW_U32 requested_flags, RAW_U8 get_
 		
 	}
 		
-	if (status) {
+	if (status == RAW_TRUE) {
 
 		*actual_flags_ptr = event_ptr->flags;
 			
@@ -259,8 +259,7 @@ RAW_U16 event_set(RAW_EVENT *event_ptr, RAW_U32 flags_to_set, RAW_U8 set_option)
 	RAW_TASK_OBJ *task_ptr;
 	
 	RAW_U8 status;
-	RAW_U8 need_sche = 0u;
-
+	
 	RAW_SR_ALLOC();
 
 	status = RAW_FALSE;
@@ -324,7 +323,7 @@ RAW_U16 event_set(RAW_EVENT *event_ptr, RAW_U32 flags_to_set, RAW_U8 set_option)
 		}
 
 		
-		if (status) {
+		if (status == RAW_TRUE) {
 
 			(*(RAW_U32 *)(task_ptr->raw_additional_suspend_info)) = event_ptr->flags;
 			
@@ -332,9 +331,7 @@ RAW_U16 event_set(RAW_EVENT *event_ptr, RAW_U32 flags_to_set, RAW_U8 set_option)
 			raw_wake_object(task_ptr);
 
 			TRACE_EVENT_WAKE(raw_task_active, task_ptr);
-	
-			/*if  task is waken up*/
-			need_sche = 1u;
+
 		}
 
 		iter = iter_temp;
@@ -343,10 +340,7 @@ RAW_U16 event_set(RAW_EVENT *event_ptr, RAW_U32 flags_to_set, RAW_U8 set_option)
 
 	RAW_CRITICAL_EXIT();
 
-	if (need_sche) {
-		
-		do_possible_sche();
-	}
+	raw_sched();
 	
 	return RAW_SUCCESS;
 
@@ -485,7 +479,7 @@ RAW_U16 raw_event_delete(RAW_EVENT *event_ptr)
 
 	TRACE_EVENT_DELETE(raw_task_active, event_ptr);
 
-	do_possible_sche();  
+	raw_sched();  
 
 	return RAW_SUCCESS;
 }

@@ -38,14 +38,9 @@
 /*enable system mpu memory protect module*/
 #define CONFIG_RAW_MPU_ENABLE                                       0
 
-/*enable raw os system preemptable*/
-#define CONFIG_RAW_SYSTEM_PREEMPTABLE                               1
-
 /*almost cpu stack is from high to low*/
 #define RAW_CPU_STACK_DOWN                                          1
 
-/*if cpu is 32 bit then set it to 1, otherwise set it to 0*/
-#define RAW_CPU_WIDTH_32                                            1
 /*Max system priority*/
 #define CONFIG_RAW_PRIO_MAX                                         62
 
@@ -132,9 +127,9 @@
 #define CONFIG_RAW_QUEUE_SIZE_GET_INFORMATION                       1
 
 /*enable different mqueue  function*/
-#define	CONFIG_RAW_MQUEUE_DELETE                                    1
-#define	CONFIG_RAW_MQUEUE_GET_INFORMATION                           1
-#define	CONFIG_RAW_MQUEUE_FLUSH	                                    1
+#define	CONFIG_RAW_MQUEUE_DELETE									1
+#define	CONFIG_RAW_MQUEUE_GET_INFORMATION							1
+#define	CONFIG_RAW_MQUEUE_FLUSH										1
 
 /*enable different timer function*/
 
@@ -148,7 +143,6 @@
 
 /*enable different module check  function*/
 
-#define RAW_SYSTEM_CHECK                                            1
 #define RAW_TASK_FUNCTION_CHECK                                     1
 #define RAW_SEMA_FUNCTION_CHECK                                     1
 #define RAW_QUEUE_FUNCTION_CHECK                                    1
@@ -203,14 +197,16 @@
 /*allowed interrupted nested level*/
 #define INT_NESTED_LEVEL                                            100
 
+#define RAW_CONFIG_CPU_TIME                                         0
+#define RAW_SCHE_LOCK_MEASURE_CHECK                                 0
+#define RAW_CPU_INT_DIS_MEASURE_CHECK                               0
+#define RAW_CONFIG_CPU_TASK                                         0
+#define CPU_TASK_PRIORITY                                           (CONFIG_RAW_PRIO_MAX - 2)
+#define CPU_STACK_SIZE                                              256
+
 
 #if (CONFIG_RAW_PRIO_MAX >= 256)
-#error  "CONFIG_RAW_PRIO_MAX must be <= 255"
-#endif
-
-
-#if ((CONFIG_RAW_SYSTEM_PREEMPTABLE == 0) && (CONFIG_RAW_TASK_0 >= 1))
-#error  "doesn't support this option, please check your option"
+#error  "CONFIG_RAW_PRIO_MAX must be <= 255."
 #endif
 
 #if ((CONFIG_RAW_QUEUE_SIZE == 0) && (CONFIG_RAW_TASK_QUEUE_SIZE >= 1))
@@ -222,7 +218,11 @@
 #endif
 
 #if ((CONFIG_RAW_TASK_0 == 0) && (CONFIG_RAW_ZERO_INTERRUPT >= 1))
-#error  "doesn't support this option, please check your option"
+#error  "doesn't support this option, please check your option."
+#endif
+
+#if ((CONFIG_RAW_MUTEX == 0) && (CONFIG_RAW_TIMER >= 1))
+#error  "you need enable CONFIG_RAW_MUTEX as well."
 #endif
 
 

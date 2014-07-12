@@ -1,5 +1,5 @@
 
-## open source of ucos2 in skyeye
+## open source of rawos in skyeye
 
 
 ### steps and how to run code

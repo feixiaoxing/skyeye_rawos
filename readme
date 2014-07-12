@@ -7,6 +7,8 @@ os: raw-os 1.053
 
 compiler: arm-linux-gcc 4.4.3
 
+	download here: http://download.csdn.net/detail/zlyong0018/4646377
+
 emulator: skyeye 1.2.6
 
 compile step: make & skyeye -e nvme_os

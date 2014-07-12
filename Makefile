@@ -6,7 +6,7 @@ OBJCOPY=arm-linux-objcopy
 
 CFLAGS= -O2 -g
 ASFLAGS= -O2 -g
-LDFLAGS=-Tnvme_os.lds -Ttext 30000000 
+LDFLAGS=-Trtos.lds -Ttext 30000000 
 
 OBJS=   init.o start.o boot.o abnormal.o mmu.o print.o interrupt.o \
 	raw_block.o raw_byte.o raw_event.o raw_idle.o  raw_idle_event.o raw_mqueue.o raw_mutex.o raw_obj.o raw_pend.o \
@@ -20,10 +20,10 @@ OBJS=   init.o start.o boot.o abnormal.o mmu.o print.o interrupt.o \
 .s.o:
 	$(CC) $(ASFLAGS) -c $<
 
-nvme_os:$(OBJS)
+rtos:$(OBJS)
 	$(CC) -static -nostartfiles -nostdlib $(LDFLAGS) $? -o $@ -lgcc
-	$(OBJCOPY) -O binary $@ nvme_os.bin
-	arm-linux-objdump -h -S -D nvme_os > nvme_os.txt
+	$(OBJCOPY) -O binary $@ rtos.bin
+	arm-linux-objdump -h -S -D rtos > rtos.txt
 
 clean:
-	rm *.o nvme_os nvme_os.bin -f
+	rm *.o rtos rtos.bin -f

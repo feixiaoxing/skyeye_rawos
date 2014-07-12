@@ -15,6 +15,6 @@ compile step: make & skyeye -e nvme_os
 
 debug: skyeye -e nvme_os -d
     
-       ./gdb nvme_os & target remote :12345 & c
+       ./arm-linux-gdb nvme_os & target remote :12345 & c
 
 

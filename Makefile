@@ -1,5 +1,4 @@
 
-
 CC=arm-linux-gcc
 LD=arm-linux-ld
 OBJCOPY=arm-linux-objcopy
